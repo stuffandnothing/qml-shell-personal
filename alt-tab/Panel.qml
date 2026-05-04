@@ -54,25 +54,19 @@ Rectangle {
     }
 
     function refreshWindows() {
-        var script = pluginApi.pluginDir + "/script"
-        listProc.command = [script, "--list"]
+        listProc.command = [pluginApi.pluginDir + "/script", "--list"]
         listProc.running = false
         listProc.running = true
     }
 
     function focusWindow(number) {
-        var script = pluginApi.pluginDir + "/script"
-        focusProc.command = [script, "--focus", number.toString()]
+        focusProc.command = [pluginApi.pluginDir + "/script", "--focus", number.toString()]
         focusProc.running = false
         focusProc.running = true
         pluginApi.closePanel(screen)
     }
 
-    Component.onCompleted: {
-        refreshWindows()
-    }
-
-    Keys.onEscapePressed: pluginApi.closePanel(screen)
+    Component.onCompleted: refreshWindows()
 
     MouseArea {
         anchors.fill: parent
@@ -80,9 +74,11 @@ Rectangle {
     }
 
     Rectangle {
+        id: card
+
         anchors.centerIn: parent
-        width: Math.min(480, parent.width * 0.45)
-        height: Math.min(windowModel.count * 52 + 64, parent.height * 0.65)
+        width: 400
+        height: Math.min(cardColumn.implicitHeight + Style.marginM * 2, root.height * 0.7)
         color: Color.mSurface
         radius: Style.radiusL
         border.color: Color.mOutline
@@ -94,8 +90,14 @@ Rectangle {
         }
 
         ColumnLayout {
-            anchors.fill: parent
-            anchors.margins: Style.marginM
+            id: cardColumn
+
+            anchors {
+                top: parent.top
+                left: parent.left
+                right: parent.right
+                margins: Style.marginM
+            }
             spacing: Style.marginXS
 
             NText {
@@ -111,17 +113,15 @@ Rectangle {
                 text: "No windows on this workspace"
                 color: Color.mOnSurfaceVariant
                 pointSize: Style.fontSizeS
-                Layout.alignment: Qt.AlignHCenter
             }
 
             ListView {
                 id: listView
 
                 Layout.fillWidth: true
-                Layout.fillHeight: true
+                implicitHeight: contentHeight
                 model: windowModel
-                clip: true
-                keyNavigationEnabled: true
+                interactive: false
                 focus: true
 
                 Keys.onEscapePressed: pluginApi.closePanel(screen)
@@ -129,22 +129,19 @@ Rectangle {
                     if (currentIndex >= 0)
                         root.focusWindow(windowModel.get(currentIndex).number)
                 }
-                Keys.onTabPressed: {
-                    if (currentIndex < count - 1)
-                        currentIndex++
-                    else
-                        currentIndex = 0
-                }
+                Keys.onTabPressed: currentIndex = (currentIndex + 1) % count
 
                 delegate: Rectangle {
                     required property int index
                     required property int number
                     required property string label
 
+                    property bool hovered: false
+
                     width: listView.width
-                    height: 44
+                    height: 40
                     radius: Style.radiusS
-                    color: listView.currentIndex === index ? Color.mPrimaryContainer : "transparent"
+                    color: (listView.currentIndex === index || hovered) ? Color.mPrimaryContainer : "transparent"
 
                     Behavior on color {
                         ColorAnimation {
@@ -160,7 +157,7 @@ Rectangle {
 
                         NText {
                             text: number.toString()
-                            color: listView.currentIndex === index ? Color.mOnPrimaryContainer : Color.mOnSurfaceVariant
+                            color: (listView.currentIndex === index || parent.parent.hovered) ? Color.mOnPrimaryContainer : Color.mOnSurfaceVariant
                             pointSize: Style.fontSizeXS
                             font.weight: Font.Bold
                             Layout.preferredWidth: 16
@@ -169,7 +166,7 @@ Rectangle {
 
                         NText {
                             text: label
-                            color: listView.currentIndex === index ? Color.mOnPrimaryContainer : Color.mOnSurface
+                            color: (listView.currentIndex === index || parent.parent.hovered) ? Color.mOnPrimaryContainer : Color.mOnSurface
                             pointSize: Style.fontSizeS
                             elide: Text.ElideRight
                             Layout.fillWidth: true
@@ -180,7 +177,11 @@ Rectangle {
                     MouseArea {
                         anchors.fill: parent
                         hoverEnabled: true
-                        onEntered: listView.currentIndex = index
+                        onEntered: {
+                            parent.hovered = true
+                            listView.currentIndex = index
+                        }
+                        onExited: parent.hovered = false
                         onClicked: root.focusWindow(number)
                     }
                 }
